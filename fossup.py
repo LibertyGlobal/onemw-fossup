@@ -1,0 +1,263 @@
+#!/usr/bin/env python3
+# coding=utf-8
+#
+# Copyright (C) 2016-2018, Togán Labs Ltd. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without 
+# modification, are permitted provided that the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice, this
+# list of conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+# this list of conditions and the following disclaimer in the documentation 
+# and/or other materials provided with the distribution.
+#
+# 3. All advertising materials mentioning features or use of this software must
+# display the following acknowledgement: 
+#
+# This product includes software developed by Togán Labs Ltd.
+#
+# 4. Neither the name of the copyright holder nor the names of its contributors
+# may be used to endorse or promote products derived from this software without
+# specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY COPYRIGHT HOLDER "AS IS" AND ANY EXPRESS OR 
+# IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+# EVENT SHALL COPYRIGHT HOLDER BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+# OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+# WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+# OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+# OF THE POSSIBILITY OF SUCH DAMAGE.
+
+import requests
+import urllib
+import logging
+import time
+from requests_toolbelt.multipart.encoder import MultipartEncoder
+
+
+class FossUpload(object):
+
+    def PostFileReq(self, url, values):
+        url=url
+        values = values
+        m = MultipartEncoder(
+            fields=values)
+        headers={'Content-Type': m.content_type, 
+                 'Connection' : 'keep-alive',
+                 'Pragma' : 'no-cache',
+                 'Cache-Control' : 'no-cache',
+                 'Upgrade-Insecure-Requests' : '1', 
+                 'Referer' : url}
+        cookies = self.session.cookies.get_dict()
+
+        r = self.session.post(url, 
+                              data=m,
+                              headers=headers)
+        logging.debug("POST: " +url +" " + str(r))
+
+    def GetReq(self, url):
+        url = url
+        r = self.session.get(url)
+        logging.debug("GET: " +url +" " + str(r))
+
+    def PostReq(self, url, values):
+        data = values
+        url = url
+        r = self.session.post(url, data=data)
+        logging.debug("POST: " +url +" " + str(r))
+
+    def Login(self):
+        url = self.baseurl + '/?mod=auth'
+        values = {'username' : self.username,
+              'password' : self.password}
+        self.PostReq(url, values)
+
+    def CreateDirectory(self):
+        url = self.baseurl + '/?mod=folder_create'
+        values = {'parentid' : '1',
+              'newname' : self.dirname,
+              'description' : self.description}
+        self.PostReq(url, values)
+
+    def FindDirectory(self):
+        import bs4
+        url = self.baseurl + '/?mod=upload_file'
+
+        results = self.session.get(url)
+        c = results.content
+        soup = bs4.BeautifulSoup(c, "lxml")
+        folders = soup.findAll('select', {"name":"folder"})
+        if folders is None:
+            return None
+        for folder in folders:
+            for option in folder.findAll('option'):
+                if option.text.strip() == self.dirname:
+                    return option['value']
+            return None
+
+    def FindUploadFormBuild(self):
+        import bs4
+        url = self.baseurl + '/?mod=upload_file'
+
+        results = self.session.get(url)
+        c = results.content
+        soup = bs4.BeautifulSoup(c, "lxml")
+        try:
+            value = soup.find('input', {'name': 'uploadformbuild'}).get('value')
+            return value
+        except:
+            logging.warn("Something went horribly wrong")
+            pass
+        return None
+
+    def SetBrowseCookie(self):
+        url = self.baseurl + '/?mod=browse'
+        r=self.GetReq(url)
+
+    def UploadFile(self, **kwargs):
+        import os
+        from mimetypes import MimeTypes
+        url = self.baseurl + '/?mod=upload_file'
+        mime = MimeTypes()
+        
+        # pathname2url location change in py3
+        if sys.version_info >= (3, 0):
+            murl = urllib.request.pathname2url(self.filepath)
+        else:
+            murl = urllib.pathname2url(self.filepath)
+
+        mime_type = mime.guess_type(murl)
+        uploadformbuild = self.FindUploadFormBuild()
+        values = (
+                  ("uploadformbuild",uploadformbuild),
+                  ("folder" , self.dirnum),
+                  ("fileInput", (os.path.basename(os.path.expanduser(self.filepath)), open(self.filepath, 'rb'), mime_type[0])),
+                  ("descriptionInputName", os.path.basename(os.path.expanduser(self.filepath))),
+                  ("public", kwargs["publicdir"]),
+                  ("Check_agent_bucket", kwargs["check_agent_bucket"]),
+                  ("Check_agent_copyright", kwargs["check_agent_copyright"]),
+                  ("Check_agent_ecc", kwargs["check_agent_ecc"]),
+                  ("Check_agent_mimetype", kwargs["check_agent_mimetype"]),
+                  ("Check_agent_monk", kwargs["check_agent_monk"]),
+                  ("Check_agent_nomos", kwargs["check_agent_nomos"]),
+                  ("Check_agent_pkgagent", kwargs["check_agent_pkgagent"]),
+                  ("deciderRules[]", kwargs["deciderrules"])
+                  )
+        logging.debug(values)
+        self.PostFileReq(url, values)
+
+
+    def __init__(self, username, password, url, filepath, dirname, description, 
+                 **kwargs):
+        self.session = requests.Session()
+        self.username = username
+        self.password = password
+        self.baseurl = url
+        self.filepath = filepath
+        self.dirname = dirname
+        self.description = description
+        self.Login()
+        self.dirnum=self.FindDirectory()
+        if self.dirnum is None:
+            self.CreateDirectory()
+            '''
+            On some laggy servers we are unable to find the
+            directory right away. Give a few second timeout
+            and recheck.
+            '''
+            import time
+            # 5 second timeout for directory creation
+            timeout = time.time() + 5   
+            while self.dirnum is None:
+                if time.time() > timeout:
+                    break
+                self.dirnum=self.FindDirectory()
+        self.UploadFile(**kwargs)
+
+if __name__ == "__main__":
+    import argparse
+    import sys
+
+    # configparser PEP 8 compliance name change
+    if sys.version_info >= (3, 0):
+        import configparser as ConfigParser    
+    else:
+        import ConfigParser
+        
+    import os
+
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        add_help=False
+        )
+
+    parser.add_argument("-c", dest="conf", 
+                        default=os.path.expanduser("~/.fossuploadrc"),
+                        help="Specify config file", metavar="FILE")
+
+    args, remaining_argv = parser.parse_known_args()
+
+    defaults = {
+        "username":"fossy",
+        "password":"fossy",
+        "url":"http://localhost/repo"
+    }
+
+    if args.conf:
+        config = ConfigParser.SafeConfigParser()
+        config.read([args.conf])
+        defaults = dict(config.items("Defaults"))
+
+    parser = argparse.ArgumentParser(
+        # Inherit options from config_parser
+        parents=[parser]
+        )
+        
+    parser.set_defaults(**defaults)
+
+
+    parser.add_argument('-u', action="store", dest="username", 
+                              help="Clear text username. Not suggested. Use ~/.fossuploadrc instead.")
+    parser.add_argument('-p', action="store", dest="password", 
+                              help="Clear text password. Not suggested. Use ~/.fossuploadrc instead.")
+    parser.add_argument('-r', action="store", dest="url", 
+                              help="The URL of the Fossology instance. Example: http://myfossology.org/repo")
+    parser.add_argument('-f', action="store", dest="filepath", 
+                              help="Path to the file you wish to upload.")
+    parser.add_argument('-n', action="store", dest="dirname", 
+                              help="Name of the Upload folder. If it does not exist it will be created.")
+    parser.add_argument('-d', action="store", dest="description", 
+                              help="File description")
+    parser.add_argument('-l', action="store", dest="logfile", 
+                              help="Path to optional log file. If none, logs to console.")
+    parser.add_argument('-v', action="store", dest="loglevel", default="WARN", 
+                              help="DEBUG/WARN/INFO. Standard Python Logging levels")
+
+    args = parser.parse_args(remaining_argv)
+
+    if args.logfile:
+        logging.basicConfig(format='%(asctime)s %(message)s', filename=args.logfile, level=eval("logging."+args.loglevel))
+    else:
+        logging.basicConfig(format='%(asctime)s %(message)s', level=eval("logging."+args.loglevel))
+
+    # creates an instance of the class
+    fossupload = FossUpload(username=args.username, password=args.password, 
+                      url=args.url, filepath=args.filepath, 
+                      dirname=args.dirname, description=args.description,
+                      check_agent_monk = args.check_agent_monk or "1",
+                      check_agent_copyright = args.check_agent_copyright or "1",
+                      check_agent_ecc = args.check_agent_ecc or "1",
+                      check_agent_bucket = args.check_agent_bucket or "1",
+                      check_agent_nomos = args.check_agent_nomos or "1",
+                      check_agent_pkgagent = args.check_agent_pkgagent or "0",
+                      check_agent_mimetype = args.check_agent_mimetype or "1",
+                      publicdir = args.public or "private",
+                      deciderrules = args.deciderrules or "nomosInMonk"
+)
+

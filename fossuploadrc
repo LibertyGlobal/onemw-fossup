@@ -1,0 +1,13 @@
+[Defaults]
+username:fossy
+password:fossy
+url:http://localhost/repo
+public:private
+Check_agent_bucket:1
+Check_agent_copyright:1
+Check_agent_ecc:1
+Check_agent_mimetype:1
+Check_agent_monk:1
+Check_agent_nomos:1
+Check_agent_pkgagent:0
+deciderRules:nomosInMonk
