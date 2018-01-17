@@ -1,16 +1,25 @@
 fossup is a Fossology uploading program for file/archives.
 
+Installation
+------------
+Pretty straightforward here:
+
+sudo python3 setup.py install
+
+
 General Use
 ------------
-
 It is highly suggested that the username/password and url for your fossology instance 
 is kept with your rc file (see Settings File Format)
 
-fossup.py -n "My Test Directory" -f archive.tgz -d "Test Archive" -c ~/.fossuploadrc
+fossup.py -n "My Test Directory" -f archive.tgz -d "Test Archive" -c ~/.fossuprc
 
 Settings File
 -------------
-This should be relatively obvious if you're familiar with Fossology
+If not specified with -c flag, we will look for ~/.fossuprc first, then default to 
+/etc/fossuprc (which was installed during setup
+
+The config file should be relatively obvious if you're familiar with Fossology
 
 [Defaults]
 username:fossy
@@ -30,4 +39,3 @@ TODO
 ----
 - Support multiple Fossology instances within rc file
 - Clean up error handling
-
