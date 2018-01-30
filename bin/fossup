@@ -193,8 +193,8 @@ if __name__ == "__main__":
         )
     defaultrc="/etc/fossuprc"
 
-    if os.path.exists(os.path.expanduser("~/fossuprc"))
-        defaultrc=os.path.expanduser("~/fossuprc")
+    if os.path.exists(os.path.expanduser("~/.fossuprc")):
+        defaultrc=os.path.expanduser("~/.fossuprc")
 
     parser.add_argument("-c", dest="conf", 
                         default=defaultrc,
