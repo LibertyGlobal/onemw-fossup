@@ -27,6 +27,6 @@ setup(name='fossup',
       data_files = data_files,
       scripts = scripts,
       install_requires=[
-          'requests', 'bs4', 'requests-toolbelt',
+          'lxml', 'requests', 'bs4', 'requests-toolbelt',
       ],
       zip_safe=False)
