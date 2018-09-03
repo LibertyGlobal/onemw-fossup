@@ -38,6 +38,9 @@ from requests_toolbelt.multipart.encoder import MultipartEncoder
 class FossUpload(object):
 
     def PostFileReq(self, url, values):
+        firsturl = self.baseurl + '/?mod=plugin_reuser&do=getUploads&folder=%s' % self.reusefoldernum
+        results = self.session.get(firsturl,allow_redirects=True)
+
         url=url
         values = values
         m = MultipartEncoder(
@@ -78,6 +81,44 @@ class FossUpload(object):
               'newname' : self.dirname,
               'description' : self.description}
         self.PostReq(url, values)
+
+    def FindReuse(self,**kwargs):
+        # Note. This is a really bodgey way of doing this but short of a REST
+        # API, it's what we have.
+        import bs4
+        url = self.baseurl + '/?mod=search'
+        filename = os.path.basename(os.path.expanduser(self.filepath))
+        values = {"searchtype": "allfiles",
+                  "filename": filename,
+                  "tag":"",
+                  "sizemin":"",
+                  "sizemax":"",
+                  "license":"",
+                  "copyright":"",
+                  "item":""}
+        m = MultipartEncoder(
+            fields=values)
+        headers={'Content-Type': m.content_type,
+                 'Connection' : 'keep-alive',
+                 'Pragma' : 'no-cache',
+                 'Cache-Control' : 'no-cache',
+                 'Upgrade-Insecure-Requests' : '1',
+                 'Referer' : url}
+        results = self.session.post(url, data=m, headers=headers, allow_redirects=True)
+        c = results.content
+
+        soup = bs4.BeautifulSoup(c, "lxml")
+        links = soup.findAll('a')
+
+# Note: We find the first instance in the reuse folder. It is imperative for
+# correct operations that your reuse folder only contains one instance.
+
+        for index, link in enumerate(links):
+            if link.contents[0]==kwargs["reusefolder"]:
+                reuserlink=links[index+1]['href'].replace("/repo/", "")
+        urlitem=reuserlink.split('&')[-1].replace("item=","")
+        urlupload=reuserlink.split('&')[-2].replace("&", "&amp;").replace("upload=", "")
+        return urlitem, urlupload
 
     def FindDirectory(self):
         import bs4
@@ -141,8 +182,12 @@ class FossUpload(object):
                   ("Check_agent_monk", kwargs["check_agent_monk"]),
                   ("Check_agent_nomos", kwargs["check_agent_nomos"]),
                   ("Check_agent_pkgagent", kwargs["check_agent_pkgagent"]),
-                  ("deciderRules[]", kwargs["deciderrules"])
-                  )
+                  ("deciderRules[]", kwargs["deciderrules"]),
+                  ("reuseFolderSelectorName", "%s,3" % self.reusefoldernum),
+                  ("reuseMode[]", "reuseMain"),
+                  ("reuseMode[]", "reuseEnhanced"),
+                  ("uploadToReuse", "%s,3" % self.uploadtoreuse))
+
         logging.debug(values)
         self.PostFileReq(url, values)
 
@@ -157,7 +202,11 @@ class FossUpload(object):
         self.dirname = dirname
         self.description = description
         self.Login()
+        if kwargs["reusefolder"] is not None:
+            self.reusefoldernum,self.uploadtoreuse=self.FindReuse(**kwargs)
+
         self.dirnum=self.FindDirectory()
+
         if self.dirnum is None:
             self.CreateDirectory()
             '''
@@ -172,6 +221,7 @@ class FossUpload(object):
                 if time.time() > timeout:
                     break
                 self.dirnum=self.FindDirectory()
+
         self.UploadFile(**kwargs)
 
 if __name__ == "__main__":
@@ -257,6 +307,7 @@ if __name__ == "__main__":
                       check_agent_pkgagent = args.check_agent_pkgagent or "0",
                       check_agent_mimetype = args.check_agent_mimetype or "1",
                       publicdir = args.public or "private",
-                      deciderrules = args.deciderrules or "nomosInMonk"
+                      deciderrules = args.deciderrules or "nomosInMonk",
+                      reusefolder = args.reusefolder or None,
 )
 
