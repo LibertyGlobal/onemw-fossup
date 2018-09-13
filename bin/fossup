@@ -112,13 +112,16 @@ class FossUpload(object):
 
 # Note: We find the first instance in the reuse folder. It is imperative for
 # correct operations that your reuse folder only contains one instance.
-
+        reuserlink=None
         for index, link in enumerate(links):
             if link.contents[0]==kwargs["reusefolder"]:
                 reuserlink=links[index+1]['href'].replace("/repo/", "")
-        urlitem=reuserlink.split('&')[-1].replace("item=","")
-        urlupload=reuserlink.split('&')[-2].replace("&", "&amp;").replace("upload=", "")
-        return urlitem, urlupload
+        if reuserlink is not None:
+            urlitem=reuserlink.split('&')[-1].replace("item=","")
+            urlupload=reuserlink.split('&')[-2].replace("&", "&amp;").replace("upload=", "")
+            return urlitem, urlupload
+        else:
+            return None, None
 
     def FindDirectory(self):
         import bs4
@@ -182,8 +185,9 @@ class FossUpload(object):
                   ("Check_agent_monk", kwargs["check_agent_monk"]),
                   ("Check_agent_nomos", kwargs["check_agent_nomos"]),
                   ("Check_agent_pkgagent", kwargs["check_agent_pkgagent"]),
-                  ("deciderRules[]", kwargs["deciderrules"]),
-                  ("reuseFolderSelectorName", "%s,3" % self.reusefoldernum),
+                  ("deciderRules[]", kwargs["deciderrules"]))
+        if self.uploadtoreuse is not None:
+                  values = values + (("reuseFolderSelectorName", "%s,3" % self.reusefoldernum),
                   ("reuseMode[]", "reuseMain"),
                   ("reuseMode[]", "reuseEnhanced"),
                   ("uploadToReuse", "%s,3" % self.uploadtoreuse))
