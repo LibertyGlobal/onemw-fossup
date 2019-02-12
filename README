@@ -37,5 +37,4 @@ deciderRules:nomosInMonk
 
 TODO
 ----
-- Support multiple Fossology instances within rc file
-- Clean up error handling
+- Move code to fossdriver
