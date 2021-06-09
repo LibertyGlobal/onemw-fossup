@@ -191,10 +191,8 @@ if __name__ == "__main__":
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False
         )
-    defaultrc="/etc/fossuprc"
 
-    if os.path.exists(os.path.expanduser("~/.fossuprc")):
-        defaultrc=os.path.expanduser("~/.fossuprc")
+    defaultrc=os.path.expanduser("~/.fossuprc")
 
     parser.add_argument("-c", dest="conf", 
                         default=defaultrc,
