@@ -1,5 +1,6 @@
 # coding=utf-8
 from setuptools import setup
+import os
 
 
 def readme():
@@ -7,7 +8,8 @@ def readme():
         return f.read()
 
 scripts = ['bin/fossup',]
-data_files = [('/etc', ['etc/fossuprc'])]
+
+data_files = [(os.environ['HOME'], ['etc/.fossuprc'])]
 
 setup(name='fossup',
       version='0.1',
@@ -27,6 +29,6 @@ setup(name='fossup',
       data_files = data_files,
       scripts = scripts,
       install_requires=[
-          'lxml', 'requests', 'bs4', 'requests-toolbelt',
+          'lxml==4.6.3', 'requests==2.25.1', 'bs4==0.0.1', 'requests-toolbelt==0.9.1',
       ],
       zip_safe=False)

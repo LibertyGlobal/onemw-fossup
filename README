@@ -4,7 +4,7 @@ Installation
 ------------
 Pretty straightforward here:
 
-sudo python3 setup.py install
+python3 setup.py install
 
 
 General Use
